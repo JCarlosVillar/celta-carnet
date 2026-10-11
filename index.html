@@ -1,0 +1,784 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Carnet de licencia de tiro con arco</title>
+<meta name="description" content="Convierte el PDF de tu licencia en una tarjeta para el móvil o para imprimir. Todo se procesa en tu navegador.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎯</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100,400;100,500;100,600;100,700;112,800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#e7ebe6; --surface:#f6f7f4; --ink:#18211d; --muted:#5b6761; --line:#cad1c8;
+  --gold:#c8962a; --focus:#c8962a; --danger:#b23a2a; --ok:#2f6b47;
+  --radius-l:18px; --radius-s:10px;
+  --font:"Archivo","Helvetica Neue",Arial,sans-serif;
+  color-scheme:light dark;
+}
+@media (prefers-color-scheme:dark){
+  :root{ --bg:#131816; --surface:#1b211e; --ink:#e7ece6; --muted:#9aa59f; --line:#2e3833; --gold:#e2b33c; --focus:#e2b33c; --danger:#e07563; --ok:#7fc49b; }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg); color:var(--ink); font:16px/1.5 var(--font); -webkit-font-smoothing:antialiased}
+.app{max-width:1180px; margin:0 auto; padding:clamp(20px,4vw,48px) clamp(16px,3vw,32px) 64px;
+  display:grid; gap:28px; grid-template-columns:minmax(0,1fr); grid-template-areas:"head" "stage" "form"}
+@media (min-width:980px){
+  .app{grid-template-columns:minmax(0,1fr) minmax(0,1.1fr); column-gap:48px; grid-template-areas:"head stage" "form stage"; align-items:start}
+  .stage{position:sticky; top:24px}
+}
+header{grid-area:head}
+h1{font-size:clamp(2.1rem,4.5vw,3.1rem); line-height:1.02; font-weight:800; font-stretch:112%; letter-spacing:-.02em; margin:0 0 .5rem}
+.lede{color:var(--muted); max-width:46ch; margin:0}
+.lede strong{color:var(--ink); font-weight:600}
+
+.form{grid-area:form; display:grid; gap:14px}
+.step{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-l); padding:22px}
+.step h2{display:flex; align-items:center; gap:12px; font-size:1.12rem; font-weight:700; margin:0 0 14px}
+.num{flex:none; width:28px; height:28px; border-radius:50%; border:1.5px solid currentColor; display:grid; place-items:center; font-size:.82rem; font-weight:700}
+.note{color:var(--muted); font-size:.9rem; margin:0 0 14px}
+
+.drop{display:grid; place-items:center; gap:4px; text-align:center; padding:30px 16px; border:1.5px dashed var(--line); border-radius:var(--radius-s); cursor:pointer; transition:border-color .15s, background .15s}
+.drop:hover,.drop.over{border-color:var(--gold); background:color-mix(in srgb,var(--gold) 7%,transparent)}
+.drop:focus-within{outline:2px solid var(--focus); outline-offset:3px}
+.drop b{font-weight:600}
+.drop span{color:var(--muted); font-size:.88rem}
+.drop input{position:absolute; width:1px; height:1px; opacity:0}
+.status{font-size:.9rem; margin:12px 0 0; min-height:1.2em}
+.status.err{color:var(--danger)} .status.ok{color:var(--ok)}
+
+.fields{display:grid; gap:12px}
+.field label.lbl{display:block; font-size:.86rem; font-weight:600; margin-bottom:5px}
+.field .row{display:flex; gap:10px; align-items:center}
+input[type=text]{flex:1; min-width:0; height:44px; padding:0 12px; font:inherit; color:var(--ink); background:var(--bg); border:1px solid var(--line); border-radius:var(--radius-s)}
+input[type=text]:focus{outline:2px solid var(--focus); outline-offset:1px; border-color:transparent}
+.show{display:flex; align-items:center; gap:6px; font-size:.85rem; color:var(--muted); white-space:nowrap; cursor:pointer}
+.show input{width:18px; height:18px; accent-color:var(--ink)}
+
+.media{margin-top:18px; padding-top:18px; border-top:1px solid var(--line); display:grid; gap:10px}
+.media-row{display:flex; flex-wrap:wrap; align-items:center; gap:8px}
+.media-row .what{font-weight:600; font-size:.92rem; min-width:3.5rem}
+.media-row .state{color:var(--muted); font-size:.88rem; flex-basis:100%}
+.media-row .state.ok{color:var(--ok)}
+.media-row a.state{color:var(--ink); text-decoration:underline; text-underline-offset:3px}
+.pagewrap{position:relative; margin-top:6px; border:1px solid var(--line); border-radius:var(--radius-s); overflow:hidden; background:#fff; user-select:none}
+.pagewrap canvas{display:block; width:100%; height:auto}
+.pagewrap.picking{cursor:crosshair; touch-action:none; outline:2px solid var(--gold); outline-offset:2px}
+.sel{position:absolute; border:2px solid var(--gold); background:color-mix(in srgb,var(--gold) 18%,transparent); pointer-events:none}
+.hint{font-size:.88rem; color:var(--ink); background:color-mix(in srgb,var(--gold) 16%,transparent); padding:8px 12px; border-radius:8px; margin:4px 0 0}
+details{margin-top:12px; font-size:.88rem; color:var(--muted)}
+details pre{white-space:pre-wrap; max-height:220px; overflow:auto; background:var(--bg); padding:10px; border-radius:8px; font-size:.8rem}
+summary{cursor:pointer}
+
+.btn{display:inline-flex; align-items:center; justify-content:center; gap:6px; height:40px; padding:0 14px; font:inherit; font-size:.9rem; font-weight:600; border-radius:999px; border:1px solid var(--line); background:transparent; color:var(--ink); cursor:pointer}
+.btn:hover{border-color:var(--ink)}
+.btn:focus-visible{outline:2px solid var(--focus); outline-offset:2px}
+.btn.primary{background:var(--ink); color:var(--surface); border-color:var(--ink)}
+.btn.primary:hover{opacity:.88}
+.btn.small{height:34px; padding:0 12px; font-size:.84rem}
+.filebtn{position:relative; overflow:hidden}
+.filebtn input{position:absolute; inset:0; opacity:0; cursor:pointer}
+
+.design{display:grid; gap:16px}
+.design .lbl{font-size:.86rem; font-weight:600; margin-bottom:7px; display:block}
+.swatches{display:flex; flex-wrap:wrap; gap:8px}
+.theme{display:flex; align-items:center; gap:8px; height:40px; padding:0 14px 0 6px; border-radius:999px; border:1px solid var(--line); background:transparent; color:var(--ink); font:inherit; font-size:.88rem; cursor:pointer}
+.theme i{width:28px; height:28px; border-radius:50%; border:1px solid rgba(0,0,0,.15)}
+.theme[aria-pressed=true]{border-color:var(--ink); box-shadow:inset 0 0 0 1px var(--ink)}
+.dot{width:34px; height:34px; border-radius:50%; border:2px solid transparent; cursor:pointer; padding:0; box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)}
+.dot[aria-pressed=true]{border-color:var(--ink); outline:2px solid var(--surface); outline-offset:-4px}
+.dot:focus-visible,.theme:focus-visible{outline:2px solid var(--focus); outline-offset:2px}
+input[type=color]{width:34px; height:34px; border:1px solid var(--line); border-radius:50%; padding:0; background:none; cursor:pointer}
+input[type=color]::-webkit-color-swatch-wrapper{padding:3px} input[type=color]::-webkit-color-swatch{border:0; border-radius:50%}
+.check{display:flex; gap:8px; align-items:center; font-size:.9rem; cursor:pointer}
+.check input{width:18px; height:18px; accent-color:var(--ink)}
+
+.stage{grid-area:stage; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-l); padding:clamp(20px,4vw,40px)}
+.cardbox{display:grid; place-items:center; padding:clamp(8px,3vw,28px) 0 clamp(18px,3vw,32px)}
+#card{width:100%; max-width:540px; height:auto; filter:drop-shadow(0 20px 28px rgba(15,25,20,.28)) drop-shadow(0 2px 4px rgba(15,25,20,.18))}
+.size{text-align:center; color:var(--muted); font-size:.82rem; margin:-6px 0 22px}
+.export h2{display:flex; align-items:center; gap:12px; font-size:1.12rem; font-weight:700; margin:0 0 12px}
+.export .btns{display:flex; flex-wrap:wrap; gap:8px}
+.privacy{font-size:.84rem; color:var(--muted); margin:16px 0 0}
+[hidden]{display:none !important}
+@media (prefers-reduced-motion:reduce){*{transition:none !important}}
+.btn:disabled{opacity:.38; cursor:not-allowed}
+.btn:disabled:hover{border-color:var(--line)}
+.btn.primary:disabled:hover{opacity:.38; border-color:var(--ink)}
+.sub{font-size:.95rem; font-weight:700; margin:22px 0 4px; padding-top:18px; border-top:1px solid var(--line)}
+.sub:first-child{margin-top:0; padding-top:0; border-top:0}
+.sub + .note{margin-bottom:12px}
+.always{font-size:.82rem; color:var(--muted); white-space:nowrap}
+.sides{display:grid; gap:18px; justify-items:center; padding:clamp(4px,2vw,16px) 0 8px}
+.sides figure{margin:0; width:100%; max-width:540px}
+.sides canvas{width:100%; height:auto; display:block; filter:drop-shadow(0 16px 24px rgba(15,25,20,.22)) drop-shadow(0 2px 4px rgba(15,25,20,.16))}
+.sides figcaption{font-size:.82rem; color:var(--muted); margin-top:10px; text-align:center}
+.status a{color:inherit; text-underline-offset:3px}
+</style>
+</head>
+<body>
+<main class="app">
+  <header>
+    <h1>Tu licencia,<br>en tamaño tarjeta</h1>
+    <p class="lede">Sube el PDF de la licencia de la federación y llévatela como carnet para el móvil o para imprimir. <strong>El PDF no sale de tu navegador</strong>: no se sube a ningún servidor.</p>
+  </header>
+
+  <section class="stage" aria-label="Vista previa del carnet">
+    <div class="sides">
+      <figure><canvas id="front" aria-label="Anverso del carnet"></canvas><figcaption>Anverso: la licencia</figcaption></figure>
+      <figure><canvas id="back" aria-label="Reverso del carnet"></canvas><figcaption>Reverso. Cada cara mide 85,6 × 54 mm, como una tarjeta bancaria</figcaption></figure>
+    </div>
+    <div class="export">
+      <h2><span class="num">4</span>Descarga</h2>
+      <div class="btns">
+        <button class="btn primary" id="dlFront" disabled>Anverso PNG</button>
+        <button class="btn" id="dlBack" disabled>Reverso PNG</button>
+        <button class="btn" id="dlPdf" disabled>PDF tamaño tarjeta</button>
+        <button class="btn" id="dlA4" disabled>PDF en A4 para imprimir</button>
+        <button class="btn" id="share" hidden disabled>Compartir</button>
+      </div>
+      <p class="privacy" id="dlHint">Sube tu PDF para poder descargar el carnet.</p>
+    </div>
+  </section>
+
+  <div class="form">
+    <section class="step">
+      <h2><span class="num">1</span>Sube tu licencia en PDF</h2>
+      <label class="drop" id="drop">
+        <input type="file" id="pdfInput" accept="application/pdf,.pdf">
+        <b>Arrastra el PDF aquí o pulsa para elegirlo</b>
+        <span>El que te envió la federación, sin modificar</span>
+      </label>
+      <p class="status" id="pdfStatus" role="status"></p>
+    </section>
+
+    <section class="step">
+      <h2><span class="num">2</span>Revisa los datos</h2>
+      <div id="fields"></div>
+    </section>
+
+    <section class="step">
+      <h2><span class="num">3</span>Ajusta el diseño</h2>
+      <div class="design">
+        <div><span class="lbl">Color de la barra superior</span><div class="swatches" id="bars"></div></div>
+        <div class="field"><label class="lbl" for="titulo">Título de la tarjeta</label><div class="row"><input type="text" id="titulo"></div></div>
+        <label class="check"><input type="checkbox" id="showLogos" checked disabled> Mostrar los logos también en la cabecera del anverso</label>
+        <label class="check"><input type="checkbox" id="footnote" checked> Indicar que es una copia del documento oficial</label>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+(() => {
+'use strict';
+
+/* ---------- Constantes ---------- */
+const MM = 300 / 25.4;            // 300 ppp
+const CW = 85.6, CH = 54;         // tarjeta ID-1 en mm
+const M = 5;                      // margen
+const FONT = '"Archivo","Helvetica Neue",Arial,sans-serif';
+const u = v => v * MM;
+
+const STYLE = { bg:'#ffffff', fg:'#222222', text:'#444444', muted:'#868686', line:'#e3e3e3', edge:'rgba(0,0,0,.14)' };
+const BARS = ['#961220', '#c8102e', '#f1bf00', '#1d3f8f', '#1f6b45', '#222222'];
+
+// side: en qué cara va. fixed: siempre visible. span: ancho en la tabla del anverso (6 = fila entera)
+const FIELDS = [
+  { key:'nombre',     label:'Nombre completo',        side:'front', fixed:true, ph:'Nombre y apellidos' },
+  { key:'licencia',   label:'Nº de licencia',         side:'front', show:true,  ph:'000000' },
+  { key:'ambito',     label:'Ámbito',                 side:'front', show:true,  ph:'Nacional' },
+  { key:'temporada',  label:'Temporada',              side:'front', show:true,  ph:'2026-2027' },
+  { key:'club',       label:'Club',                   side:'front', show:true,  ph:'Club de tiro con arco', card:'Club', span:6 },
+  { key:'federacion', label:'Federación autonómica',  side:'front', fixed:true, ph:'Federación autonómica', card:'Federación', span:6 },
+  { key:'categoria',  label:'Categoría',              side:'front', show:true,  ph:'Sénior', card:'Categoría' },
+  { key:'desde',      label:'Válida desde',           side:'front', show:true,  ph:'01/10/2026', card:'Válida desde' },
+  { key:'validez',    label:'Válida hasta',           side:'front', show:true,  ph:'30/09/2027', card:'Válida hasta' },
+  { key:'expedicion', label:'Fecha de expedición',    side:'front', show:false, ph:'01/10/2026', card:'Expedición' },
+  { key:'codigo',     label:'Código de verificación', side:'front', show:true,  ph:'A1B2C3D4' },
+];
+const F = k => FIELDS.find(f => f.key === k);
+
+const state = {
+  values: Object.fromEntries(FIELDS.map(f => [f.key, ''])),
+  show:   Object.fromEntries(FIELDS.map(f => [f.key, f.fixed ? true : f.show])),
+  titulo: 'Licencia de tiro con arco',
+  bar: BARS[0], footnote: true, showLogos: true,
+  qrData: null, qrMatrix: null, verifyUrl: null,
+  logos: null, logosGray: null, loaded: false,
+};
+
+const $ = s => document.querySelector(s);
+if (window.pdfjsLib) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+/* ---------- Utilidades de dibujo ---------- */
+function rr(c, x, y, w, h, r) {
+  c.beginPath();
+  c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r);
+  c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
+}
+const dims = img => [img.naturalWidth || img.width, img.naturalHeight || img.height];
+function drawCover(c, img, x, y, w, h) {
+  const [iw, ih] = dims(img); const s = Math.max(w / iw, h / ih);
+  const sw = w / s, sh = h / s;
+  c.drawImage(img, (iw - sw) / 2, (ih - sh) / 2, sw, sh, x, y, w, h);
+}
+function fit(c, text, maxW) {
+  if (c.measureText(text).width <= maxW) return text;
+  let t = text;
+  while (t.length > 1 && c.measureText(t + '…').width > maxW) t = t.slice(0, -1);
+  return t.trimEnd() + '…';
+}
+function fitShrink(c, text, maxW, weight, size, min) {
+  let s = size;
+  while (true) {
+    c.font = `${weight} ${u(s)}px ${FONT}`;
+    if (c.measureText(text).width <= maxW || s <= min) break;
+    s -= 0.05;
+  }
+  return fit(c, text, maxW);
+}
+function wrap(c, text, maxW) {
+  const words = text.split(/\s+/).filter(Boolean); const lines = []; let line = '';
+  for (const w of words) {
+    const test = line ? line + ' ' + w : w;
+    if (c.measureText(test).width <= maxW || !line) line = test; else { lines.push(line); line = w; }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+const hair = (c, x, y, w) => { c.fillStyle = STYLE.line; c.fillRect(u(x), u(y), u(w), Math.max(1, u(0.18))); };
+function drawMatrix(c, m, x, y, size) {
+  const n = m.length, q = 4, mod = size / (n + q * 2);
+  c.fillStyle = '#000';
+  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) if (m[r][k]) {
+    const x0 = Math.round(u(x + (k + q) * mod)), x1 = Math.round(u(x + (k + q + 1) * mod));
+    const y0 = Math.round(u(y + (r + q) * mod)), y1 = Math.round(u(y + (r + q + 1) * mod));
+    c.fillRect(x0, y0, x1 - x0, y1 - y0);
+  }
+}
+const val = k => (state.values[k] || '').trim();
+function toGray(src) {
+  const cv = document.createElement('canvas'); cv.width = src.width; cv.height = src.height;
+  const c = cv.getContext('2d'); c.drawImage(src, 0, 0);
+  const d = c.getImageData(0, 0, cv.width, cv.height), p = d.data;
+  for (let i = 0; i < p.length; i += 4) {
+    const g = Math.round(p[i] * 0.299 + p[i + 1] * 0.587 + p[i + 2] * 0.114);
+    const v = g > 228 ? 255 : g;   // limpia el fondo blanco de las imágenes JPEG
+    p[i] = p[i + 1] = p[i + 2] = v;
+  }
+  c.putImageData(d, 0, 0);
+  return cv;
+}
+const pv = (k, preview) => val(k) || (preview ? F(k).ph : '');
+const visible = k => state.show[k];
+
+// Fondo, barra superior, cabecera con título y logos, y filete
+function drawBase(canvas, title, header = true) {
+  canvas.width = Math.round(u(CW)); canvas.height = Math.round(u(CH));
+  const c = canvas.getContext('2d');
+  c.clearRect(0, 0, canvas.width, canvas.height);
+  c.save();
+  rr(c, 0, 0, u(CW), u(CH), u(3.18)); c.clip();
+  c.fillStyle = STYLE.bg; c.fillRect(0, 0, u(CW), u(CH));
+  c.fillStyle = state.bar; c.fillRect(0, 0, u(CW), u(2.4));
+  if (!header) return c;
+
+  let titleRight = CW - M;
+  if (state.logos && state.showLogos) {
+    const [lw0, lh0] = dims(state.logos);
+    let lh = 5.6, lw = lh * lw0 / lh0;
+    if (lw > 24) { lw = 24; lh = lw * lh0 / lw0; }
+    c.drawImage(state.logos, u(CW - M - lw), u(3.6 + (5.6 - lh) / 2), u(lw), u(lh));
+    titleRight = CW - M - lw - 3;
+  }
+  c.fillStyle = STYLE.muted; c.font = `700 ${u(1.6)}px ${FONT}`; c.textBaseline = 'middle';
+  c.fillText(fit(c, title.toUpperCase(), u(titleRight - M)), u(M), u(6.4));
+  hair(c, M, 10, CW - 2 * M);
+  return c;
+}
+function finish(c) {
+  c.restore();
+  rr(c, u(0.15), u(0.15), u(CW - 0.3), u(CH - 0.3), u(3.05));
+  c.strokeStyle = STYLE.edge; c.lineWidth = u(0.3); c.stroke();
+}
+// Tabla con filetes: filas de elementos { label, value, ph, span }
+function drawTable(c, rowsData, x, y, W, maxRowH, bottom) {
+  const rowH = rowsData.length ? Math.min(maxRowH, (bottom - y) / rowsData.length) : 0;
+  const gap = 2.5;
+  rowsData.forEach((row, r) => {
+    const yy = y + r * rowH;
+    hair(c, x, yy, W);
+    const total = row.reduce((a, it) => a + it.span, 0);
+    let xx = x;
+    row.forEach(it => {
+      const w = (W - gap * (row.length - 1)) * it.span / total;
+      c.textBaseline = 'top';
+      c.font = `500 ${u(1.4)}px ${FONT}`; c.fillStyle = STYLE.muted; c.fillText(it.label.toUpperCase(), u(xx), u(yy + 1.1));
+      const txt = fitShrink(c, it.value, u(w), 700, 2.3, 1.85);
+      c.fillStyle = it.ph ? STYLE.muted : STYLE.fg; c.fillText(txt, u(xx), u(yy + 2.85));
+      xx += w + gap;
+    });
+  });
+  return y + rowsData.length * rowH;
+}
+// Agrupa campos: los de span 6 van solos; el resto, hasta 3 por fila
+function packRows(items) {
+  const rows = []; let cur = [];
+  for (const it of items) {
+    if (it.span === 6) { if (cur.length) { rows.push(cur); cur = []; } rows.push([it]); }
+    else { cur.push({ ...it, span: 2 }); if (cur.length === 3) { rows.push(cur); cur = []; } }
+  }
+  if (cur.length) rows.push(cur);
+  return rows;
+}
+const itemsFor = (keys, preview) => keys.map(F)
+  .filter(f => visible(f.key) && pv(f.key, preview))
+  .map(f => ({ label: f.card, value: pv(f.key, preview), ph: !val(f.key), span: f.span || 2 }));
+
+/* ---------- Anverso ---------- */
+function drawFront(canvas, preview) {
+  const c = drawBase(canvas, state.titulo.trim());
+
+  // QR sobre placa blanca y código de verificación
+  const plate = 25, px = CW - M - plate, py = 12.6;
+  c.fillStyle = '#ffffff'; rr(c, u(px), u(py), u(plate), u(plate), u(1.2)); c.fill();
+  c.strokeStyle = STYLE.line; c.lineWidth = u(0.18); c.stroke();
+  if (state.qrMatrix) drawMatrix(c, state.qrMatrix, px, py, plate);
+  else if (preview) {
+    c.fillStyle = '#9a9a9a'; c.font = `500 ${u(2)}px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText('Aquí irá tu QR', u(px + plate / 2), u(py + plate / 2)); c.textAlign = 'left';
+  }
+  const code = pv('codigo', preview);
+  if (visible('codigo') && code) {
+    c.textAlign = 'center'; c.textBaseline = 'top';
+    c.font = `600 ${u(1.3)}px ${FONT}`; c.fillStyle = STYLE.muted; c.fillText('CÓDIGO DE VERIFICACIÓN', u(px + plate / 2), u(py + plate + 1.4));
+    c.font = `700 ${u(2.1)}px ${FONT}`; c.fillStyle = val('codigo') ? STYLE.fg : STYLE.muted; c.fillText(code, u(px + plate / 2), u(py + plate + 3.2));
+    c.textAlign = 'left';
+  }
+
+  // Nombre
+  const left = M, W = px - 3.5 - left;
+  let y = 12.6;
+  const name = pv('nombre', preview).toUpperCase();
+  let fs = 4, lines = [];
+  if (name) {
+    while (true) {
+      c.font = `700 ${u(fs)}px ${FONT}`; lines = wrap(c, name, u(W));
+      if ((lines.length <= 2 && lines.every(l => c.measureText(l).width <= u(W))) || fs <= 2.6) break;
+      fs -= 0.1;
+    }
+    if (lines.length > 2) lines = [lines[0], fit(c, lines.slice(1).join(' '), u(W))];
+    c.fillStyle = val('nombre') ? STYLE.fg : STYLE.muted; c.textBaseline = 'top';
+    lines.forEach((l, i) => c.fillText(fit(c, l, u(W)), u(left), u(y + i * fs * 1.08)));
+    y += lines.length * fs * 1.08 + 1;
+  }
+
+  // "Licencia n.º · Ámbito · Temporada", como en el certificado
+  const sub = [];
+  if (visible('licencia') && pv('licencia', preview)) sub.push('Licencia n.º ' + pv('licencia', preview));
+  if (visible('ambito') && pv('ambito', preview)) sub.push(pv('ambito', preview));
+  if (visible('temporada') && pv('temporada', preview)) sub.push('Temporada ' + pv('temporada', preview));
+  if (sub.length) {
+    const t = fitShrink(c, sub.join(' · '), u(W), 400, 2, 1.5);
+    c.fillStyle = STYLE.muted; c.textBaseline = 'top'; c.fillText(t, u(left), u(y));
+    y += 3.6;
+  }
+
+  drawTable(c, packRows(itemsFor(['club', 'federacion', 'categoria', 'desde', 'validez', 'expedicion'], preview)), left, y, W, 6.6, CH - 7);
+
+  hair(c, M, CH - 6.4, CW - 2 * M);
+  const url = state.verifyUrl || (preview ? 'https://portal.rfeta.es/verificar/…' : '');
+  if (url) {
+    c.textBaseline = 'middle';
+    c.font = `400 ${u(1.4)}px ${FONT}`; c.fillStyle = STYLE.muted;
+    const lead = 'Comprobación en línea: '; c.fillText(lead, u(M), u(CH - 3.6));
+    const lw = c.measureText(lead).width;
+    const t = fitShrink(c, url.replace(/^https?:\/\//, ''), u(CW - 2 * M) - lw, 600, 1.4, 1.1);
+    c.fillStyle = state.verifyUrl ? STYLE.text : STYLE.muted; c.fillText(t, u(M) + lw, u(CH - 3.6));
+  }
+  finish(c);
+}
+
+/* ---------- Reverso: solo los logos de la federación, centrados y en gris ---------- */
+function drawBack(canvas, preview) {
+  const c = drawBase(canvas, '', false);
+  const cy = 2.4 + (CH - 2.4) / 2;
+  if (state.logosGray) {
+    const [lw0, lh0] = dims(state.logosGray);
+    let lh = 20, lw = lh * lw0 / lh0;
+    if (lw > 56) { lw = 56; lh = lw * lh0 / lw0; }
+    c.drawImage(state.logosGray, u((CW - lw) / 2), u(cy - lh / 2), u(lw), u(lh));
+  } else if (preview) {
+    c.fillStyle = '#a0a0a0'; c.font = `500 ${u(2)}px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText('Aquí irán los logos de la federación', u(CW / 2), u(cy)); c.textAlign = 'left';
+  }
+  finish(c);
+}
+
+const frontCv = $('#front'), backCv = $('#back');
+function render() { drawFront(frontCv, true); drawBack(backCv, true); updateDownloads(); }
+
+/* ---------- Lectura del PDF ---------- */
+async function extractItems(page) {
+  const tc = await page.getTextContent();
+  return tc.items.filter(i => i.str && i.str.trim()).map(i => ({
+    s: i.str.trim(), x: i.transform[4], y: i.transform[5], w: i.width,
+    h: Math.hypot(i.transform[2], i.transform[3]) || 10,
+  }));
+}
+function itemsToLines(list) {
+  const items = [...list].sort((a, b) => b.y - a.y || a.x - b.x);
+  const rows = [];
+  for (const it of items) {
+    const r = rows.find(r => Math.abs(r.y - it.y) < Math.max(2, it.h * 0.45));
+    if (r) r.items.push(it); else rows.push({ y: it.y, items: [it] });
+  }
+  rows.sort((a, b) => b.y - a.y);
+  return rows.map(r => {
+    r.items.sort((a, b) => a.x - b.x);
+    let out = '', end = null;
+    for (const it of r.items) {
+      if (end !== null) out += (it.x - end > it.h * 2.2) ? ' | ' : ' ';
+      out += it.s; end = it.x + it.w;
+    }
+    return out.replace(/\s+/g, ' ').trim();
+  }).filter(Boolean);
+}
+
+const norm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[:.]+$/, '').replace(/\s+/g, ' ').trim();
+
+// Formato "etiqueta encima, valor debajo" (el de la RFETA) o "etiqueta: valor" a la derecha
+const LABELS = {
+  'DOCUMENTO':'dni', 'DNI':'dni', 'DNI/NIE':'dni', 'NIF':'dni', 'NIE':'dni',
+  'CLUB':'club', 'CATEGORIA':'categoria', 'AMBITO':'ambito',
+  'FEDERACION':'federacion', 'FEDERACION AUTONOMICA':'federacion',
+  'TEMPORADA':'temporada', 'VALIDA HASTA':'validez', 'FECHA DE CADUCIDAD':'validez', 'CADUCIDAD':'validez',
+  'VALIDA DESDE':'desde', 'FECHA DE EXPEDICION':'expedicion', 'FECHA DE NACIMIENTO':'nacimiento',
+  'LICENCIA':'licencia', 'N.º LICENCIA':'licencia', 'Nº LICENCIA':'licencia', 'NUMERO DE LICENCIA':'licencia',
+  'NOMBRE':'nombre', 'NOMBRE Y APELLIDOS':'nombre', 'DEPORTISTA':'nombre',
+  'CODIGO DE VERIFICACION':'codigo',
+};
+const KNOWN_LABEL = new Set([...Object.keys(LABELS), 'MODALIDAD', 'ESTADO', 'FEDERACION NACIONAL']);
+
+function parsePositional(items) {
+  const out = {};
+  for (const it of items) {
+    const key = LABELS[norm(it.s)];
+    if (!key || out[key]) continue;
+    const below = items.filter(o => o !== it && Math.abs(o.x - it.x) < 4 && it.y - o.y > 0.5 && it.y - o.y < it.h * 3)
+      .sort((a, b) => b.y - a.y)[0];
+    const right = items.filter(o => o !== it && Math.abs(o.y - it.y) < it.h * 0.5 && o.x > it.x + it.w && o.x - (it.x + it.w) < it.h * 12)
+      .sort((a, b) => a.x - b.x)[0];
+    const v = (below || right || {}).s;
+    if (v && !KNOWN_LABEL.has(norm(v))) out[key] = v;
+  }
+  const hs = items.map(i => i.h).sort((a, b) => a - b), med = hs[Math.floor(hs.length / 2)] || 10;
+  const big = items.filter(i => i.h >= med * 1.5 && /[a-záéíóúñ]{2}/i.test(i.s) && !/\d/.test(i.s) && !KNOWN_LABEL.has(norm(i.s)))
+    .sort((a, b) => b.h - a.h)[0];
+  if (big && !out.nombre) out.nombre = big.s;
+  return out;
+}
+
+// Respaldo para otros formatos: "Etiqueta: valor" en la misma línea
+const PATTERNS = [
+  { key:'club',      re:/^(nombre\s+del\s+club|club(\s+deportivo)?|entidad(\s+deportiva)?)\s*[:\-]?\s*/i },
+  { key:'apellidos', re:/^(apellidos|primer\s+apellido)\s*[:\-]?\s*/i, ok:v => !/\d/.test(v) },
+  { key:'nombre',    re:/^(nombre\s+y\s+apellidos|apellidos\s+y\s+nombre|nombre\s+completo|deportista|titular|nombre)\s*[:\-]?\s*/i,
+                     ok:v => /[a-záéíóúñ]{2}/i.test(v) && !/\d/.test(v) },
+  { key:'dni',       re:/^(dni\s*\/\s*nie|dni|nie|nif|documento(\s+de\s+identidad)?)\s*[:\-.]?\s*/i, ok:v => /\d{5,}/.test(v) },
+  { key:'categoria', re:/^(categor[ií]as?|clase|divisi[oó]n)\s*[:\-]?\s*/i },
+  { key:'validez',   re:/^(v[aá]lid[ao]\s+hasta|fecha\s+de\s+caducidad|caducidad|vigente\s+hasta|expira)\s*[:\-]?\s*/i, ok:v => /\d/.test(v) },
+  { key:'temporada', re:/^temporada\s*[:\-]?\s*/i, ok:v => /\d{4}/.test(v) },
+];
+function parseLines(lines) {
+  const segs = lines.flatMap(l => l.split(' | ')).map(s => s.trim()).filter(Boolean);
+  const isLabel = s => KNOWN_LABEL.has(norm(s)) || PATTERNS.some(p => p.re.test(s) && s.replace(p.re, '').trim() === '');
+  const out = {};
+  segs.forEach((s, i) => {
+    for (const p of PATTERNS) {
+      if (out[p.key]) continue;
+      const m = s.match(p.re); if (!m) continue;
+      let v = s.slice(m[0].length).trim();
+      if (!v && segs[i + 1] && !isLabel(segs[i + 1])) v = segs[i + 1];
+      v = v.replace(/^[:\-.\s]+/, '').split(/\s+[·|]\s+/)[0].trim();
+      if (v && !isLabel(v) && (!p.ok || p.ok(v))) { out[p.key] = v; break; }
+    }
+  });
+  if (out.apellidos) {
+    out.nombre = out.nombre && !out.nombre.toLowerCase().includes(out.apellidos.toLowerCase())
+      ? out.nombre + ' ' + out.apellidos : (out.nombre || out.apellidos);
+  }
+  return out;
+}
+function niceCase(s) {
+  if (/[a-záéíóúñü]/.test(s)) return s;
+  const small = ['de', 'del', 'la', 'las', 'los', 'y', 'e', 'i', 'o', 'a', 'da', 'das', 'do', 'dos', 'con', 'en', 'van', 'von'];
+  return s.toLowerCase().split(' ')
+    .map((w, i) => i > 0 && small.includes(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+function parseAll(items, lines) {
+  const out = { ...parseLines(lines), ...parsePositional(items) };
+  const all = lines.join(' ');
+  let m;
+  if ((m = all.match(/licencia\s*n\.?\s*[ºo°]?\.?\s*(\d{3,})/i))) out.licencia = m[1];
+  if (!out.temporada && (m = all.match(/temporada\s+(\d{4}(?:\s*[-\/]\s*\d{2,4})?)/i))) out.temporada = m[1];
+  if ((m = all.match(/c[oó]digo\s+de\s+verificaci[oó]n\s*:?\s*([A-Z0-9]{4,})/i))) out.codigo = m[1];
+  if (!out.dni && (m = all.match(/\b([XYZ]\d{7}[A-Z]|\d{8}[A-Z])\b/i))) out.dni = m[1].toUpperCase();
+  ['nombre', 'categoria', 'club', 'federacion', 'ambito'].forEach(k => { if (out[k]) out[k] = niceCase(out[k]); });
+  return out;
+}
+const findVerifyUrl = lines => (lines.join(' ').match(/https?:\/\/\S+\/verificar\/[0-9a-z-]{8,}/i) || [])[0] || null;
+
+/* ---------- Logos de la cabecera del PDF ---------- */
+// Busca lo que hay dibujado entre la parte de arriba de la página y el primer texto,
+// ignorando las franjas y filetes que ocupan todo el ancho.
+function extractLogos(cv, textTopPx) {
+  const H = Math.min(cv.height, Math.round(textTopPx) - 2), W = cv.width;
+  if (H < 20) return null;
+  const d = cv.getContext('2d').getImageData(0, 0, W, H).data;
+  let x0 = W, x1 = -1, y0 = H, y1 = -1;
+  for (let y = 0; y < H; y++) {
+    let cnt = 0, rx0 = W, rx1 = -1;
+    for (let x = 0; x < W; x++) {
+      const i = (y * W + x) * 4;
+      if (Math.min(d[i], d[i + 1], d[i + 2]) < 235) { cnt++; if (x < rx0) rx0 = x; rx1 = x; }
+    }
+    if (!cnt || cnt > W * 0.6) continue;
+    x0 = Math.min(x0, rx0); x1 = Math.max(x1, rx1); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+  }
+  if (x1 < 0 || y1 - y0 < 15 || x1 - x0 < 15) return null;
+  const pad = 4, out = document.createElement('canvas');
+  const w = x1 - x0 + pad * 2, h = y1 - y0 + pad * 2;
+  out.width = w; out.height = h;
+  out.getContext('2d').drawImage(cv, x0 - pad, y0 - pad, w, h, 0, 0, w, h);
+  return out;
+}
+
+/* ---------- QR ---------- */
+function decodeQR(src) {
+  if (!window.jsQR) return null;
+  for (const s of [1, 0.5]) {
+    const w = Math.round(src.width * s), h = Math.round(src.height * s);
+    const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+    const c = cv.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, w, h); c.drawImage(src, 0, 0, w, h);
+    const code = jsQR(c.getImageData(0, 0, w, h).data, w, h, { inversionAttempts: 'dontInvert' });
+    if (code) return code.data;
+  }
+  return null;
+}
+// QR nuevo, nítido, con exactamente el mismo contenido que el original
+function setQRData(data) {
+  state.qrMatrix = state.qrData = state.verifyUrl = null;
+  if (!window.qrcode || !data) return false;
+  try {
+    const qr = qrcode(0, 'M'); qr.addData(data); qr.make();
+    const n = qr.getModuleCount();
+    state.qrMatrix = Array.from({ length: n }, (_, r) => Array.from({ length: n }, (_, k) => qr.isDark(r, k)));
+    state.qrData = data;
+    state.verifyUrl = /^https?:\/\//i.test(data) ? data : null;
+    return true;
+  } catch (e) { console.error(e); return false; }
+}
+function checkCardQR() {
+  if (!window.jsQR || !state.qrData) return false;
+  const cv = exportSide('front'), c = cv.getContext('2d');
+  const r = jsQR(c.getImageData(0, 0, cv.width, cv.height).data, cv.width, cv.height);
+  return !!r && r.data === state.qrData;
+}
+
+/* ---------- Carga del PDF ---------- */
+const pdfStatus = $('#pdfStatus');
+function setStatus(html, kind) { pdfStatus.innerHTML = html; pdfStatus.className = 'status' + (kind ? ' ' + kind : ''); }
+const esc = s => s.replace(/[&<>"]/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[ch]));
+
+async function loadPdf(file) {
+  if (!file) return;
+  if (!window.pdfjsLib) { setStatus('No se ha podido cargar el lector de PDF. Revisa la conexión y recarga la página.', 'err'); return; }
+  if (!/pdf$/i.test(file.type) && !/\.pdf$/i.test(file.name)) { setStatus('Ese archivo no es un PDF. Elige el PDF de la licencia.', 'err'); return; }
+  setStatus('Leyendo el PDF…');
+  try {
+    const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+    const page = await pdf.getPage(1);
+    const scale = 3, vp = page.getViewport({ scale });
+    const cv = document.createElement('canvas'); cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
+    const c = cv.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, cv.width, cv.height);
+    await page.render({ canvasContext: c, viewport: vp }).promise;
+
+    const items = await extractItems(page);
+    const lines = itemsToLines(items);
+    FIELDS.filter(f => !f.manual).forEach(f => state.values[f.key] = '');
+    const found = parseAll(items, lines);
+    let n = 0;
+    FIELDS.forEach(f => { if (found[f.key]) { state.values[f.key] = found[f.key]; n++; } });
+    syncInputs();
+
+    // Logos: zona entre la parte superior y el primer texto de la página
+    const pageTop = page.view[3];
+    const textTop = items.length ? Math.min(...items.map(i => (pageTop - i.y - i.h) * scale)) : cv.height * 0.15;
+    state.logos = extractLogos(cv, textTop);
+    state.logosGray = state.logos ? toGray(state.logos) : null;
+    $('#showLogos').disabled = !state.logos;
+
+    // QR: manda lo que dice el código original; si no se lee, la dirección impresa en el PDF
+    setQRData(decodeQR(cv) || findVerifyUrl(lines));
+    state.loaded = true;
+    render();
+
+    const parts = [`${n} datos leídos`];
+    if (state.logos) parts.push('logos de la licencia añadidos');
+    let msg = 'Listo: ' + parts.join(', ') + '. ';
+    if (state.qrMatrix) {
+      msg += checkCardQR() ? 'QR generado con el mismo contenido que el original y comprobado.' : 'QR generado con el mismo contenido que el original; compruébalo con el móvil.';
+      if (state.verifyUrl) msg += ` <a href="${esc(state.verifyUrl)}" target="_blank" rel="noopener">Abrir la comprobación en línea</a>`;
+      setStatus(msg, 'ok');
+    } else {
+      setStatus(msg + 'No se ha encontrado el QR ni la dirección de verificación en este PDF, así que el carnet saldrá sin QR.', 'err');
+    }
+  } catch (e) {
+    console.error(e);
+    state.loaded = false; updateDownloads();
+    setStatus(e && e.name === 'PasswordException'
+      ? 'El PDF está protegido con contraseña. Ábrelo, guárdalo sin contraseña y vuelve a subirlo.'
+      : 'No se ha podido leer el PDF. Comprueba que es el archivo original de la federación.', 'err');
+  }
+}
+
+/* ---------- Formulario ---------- */
+const fieldsEl = $('#fields');
+function fieldRow(f) {
+  const d = document.createElement('div'); d.className = 'field';
+  d.innerHTML = `<label class="lbl" for="f-${f.key}">${f.label}</label><div class="row">
+    <input type="text" id="f-${f.key}" placeholder="${f.ph}" autocomplete="off"${f.list ? ` list="l-${f.key}"` : ''}>
+    ${f.list ? `<datalist id="l-${f.key}">${f.list.map(o => `<option value="${o}">`).join('')}</datalist>` : ''}
+    ${f.fixed ? '<span class="always">Siempre visible</span>' : `<label class="show"><input type="checkbox" id="s-${f.key}"> Mostrar</label>`}</div>`;
+  d.querySelector('input[type=text]').addEventListener('input', e => { state.values[f.key] = e.target.value; render(); });
+  const chk = d.querySelector('input[type=checkbox]');
+  if (chk) { chk.checked = state.show[f.key]; chk.addEventListener('change', e => { state.show[f.key] = e.target.checked; render(); }); }
+  return d;
+}
+function group(title, note, side) {
+  const h = document.createElement('h3'); h.className = 'sub'; h.textContent = title; fieldsEl.appendChild(h);
+  if (note) { const p = document.createElement('p'); p.className = 'note'; p.textContent = note; fieldsEl.appendChild(p); }
+  const box = document.createElement('div'); box.className = 'fields';
+  FIELDS.filter(f => f.side === side).forEach(f => box.appendChild(fieldRow(f)));
+  fieldsEl.appendChild(box);
+  return box;
+}
+group('Anverso: la licencia', 'Rellenamos lo que se puede leer del PDF. Corrige lo que falte.', 'front');
+function syncInputs() { FIELDS.forEach(f => { $('#f-' + f.key).value = state.values[f.key]; }); }
+
+// Color de la barra
+const barsEl = $('#bars');
+const colorIn = document.createElement('input'); colorIn.type = 'color'; colorIn.value = state.bar; colorIn.title = 'Otro color';
+const pressBar = () => barsEl.querySelectorAll('.dot').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.c === state.bar)));
+BARS.forEach(col => {
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'dot'; b.dataset.c = col;
+  b.style.background = col; b.setAttribute('aria-label', 'Barra ' + col);
+  b.onclick = () => { state.bar = col; colorIn.value = col; pressBar(); render(); };
+  barsEl.appendChild(b);
+});
+colorIn.oninput = e => { state.bar = e.target.value; pressBar(); render(); };
+barsEl.appendChild(colorIn); pressBar();
+
+$('#titulo').value = state.titulo;
+$('#titulo').oninput = e => { state.titulo = e.target.value; render(); };
+$('#footnote').onchange = e => { state.footnote = e.target.checked; render(); };
+$('#showLogos').onchange = e => { state.showLogos = e.target.checked; render(); };
+
+const drop = $('#drop'), pdfInput = $('#pdfInput');
+pdfInput.onchange = e => loadPdf(e.target.files[0]);
+['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => loadPdf(e.dataTransfer.files[0]));
+
+/* ---------- Exportar ---------- */
+const dlButtons = ['#dlFront', '#dlBack', '#dlPdf', '#dlA4', '#share'].map($);
+function updateDownloads() {
+  const ready = state.loaded && !!val('nombre');
+  dlButtons.forEach(b => b.disabled = !ready);
+  $('#dlHint').textContent = ready
+    ? 'El anverso en PNG es el más cómodo para el móvil. El A4 trae las dos caras juntas para doblar y plastificar.'
+    : state.loaded ? 'Escribe el nombre para poder descargar el carnet.' : 'Sube tu PDF para poder descargar el carnet.';
+}
+function exportSide(side) {
+  const cv = document.createElement('canvas');
+  (side === 'front' ? drawFront : drawBack)(cv, false);
+  return cv;
+}
+function baseName() {
+  const n = val('nombre').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase();
+  return 'carnet' + (n ? '-' + n : '');
+}
+function download(blob, name) {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+const toBlob = cv => new Promise(r => cv.toBlob(r, 'image/png'));
+const QR_BOX = [CW - M - 25, 12.6, 25, 25];
+$('#dlFront').onclick = async () => download(await toBlob(exportSide('front')), baseName() + '-anverso.png');
+$('#dlBack').onclick = async () => download(await toBlob(exportSide('back')), baseName() + '-reverso.png');
+$('#dlPdf').onclick = () => {
+  if (!window.jspdf) return alert('No se ha podido cargar el generador de PDF. Recarga la página.');
+  const doc = new jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: [CW, CH] });
+  doc.addImage(exportSide('front').toDataURL('image/png'), 'PNG', 0, 0, CW, CH);
+  if (state.verifyUrl) doc.link(...QR_BOX, { url: state.verifyUrl });
+  doc.addPage([CW, CH], 'landscape');
+  doc.addImage(exportSide('back').toDataURL('image/png'), 'PNG', 0, 0, CW, CH);
+  doc.save(baseName() + '.pdf');
+};
+// A4: anverso y reverso lado a lado, compartiendo el borde. Se dobla por ahí y queda una tarjeta de dos caras.
+$('#dlA4').onclick = () => {
+  if (!window.jspdf) return alert('No se ha podido cargar el generador de PDF. Recarga la página.');
+  const doc = new jspdf.jsPDF({ unit: 'mm', format: 'a4' });
+  const x = (210 - CW * 2) / 2, y = 30, mid = x + CW;
+  doc.addImage(exportSide('front').toDataURL('image/png'), 'PNG', x, y, CW, CH);
+  doc.addImage(exportSide('back').toDataURL('image/png'), 'PNG', mid, y, CW, CH);
+  if (state.verifyUrl) doc.link(x + QR_BOX[0], y + QR_BOX[1], QR_BOX[2], QR_BOX[3], { url: state.verifyUrl });
+  doc.setLineWidth(0.2); doc.setDrawColor(120);
+  const L = 5, o = 2, right = mid + CW;
+  [[x, y], [right, y], [x, y + CH], [right, y + CH]].forEach(([px, py]) => {
+    const sx = px === x ? -1 : 1, sy = py === y ? -1 : 1;
+    doc.line(px + sx * o, py, px + sx * (o + L), py);
+    doc.line(px, py + sy * o, px, py + sy * (o + L));
+  });
+  doc.setLineDashPattern([1, 1], 0);
+  doc.line(mid, y - o - L, mid, y - o); doc.line(mid, y + CH + o, mid, y + CH + o + L);
+  doc.setLineDashPattern([], 0);
+  doc.setFontSize(9); doc.setTextColor(110);
+  doc.text('Recorta por las marcas de las esquinas, dobla por la línea discontinua y plastifica.', 105, y + CH + 16, { align: 'center' });
+  doc.text('Imprime al 100 %, sin ajustar a la página: cada cara mide 85,6 × 54 mm.', 105, y + CH + 21, { align: 'center' });
+  doc.save(baseName() + '-a4.pdf');
+};
+const shareBtn = $('#share');
+try {
+  const probe = new File([''], 'x.png', { type: 'image/png' });
+  if (navigator.canShare && navigator.canShare({ files: [probe] })) shareBtn.hidden = false;
+} catch (_) {}
+shareBtn.onclick = async () => {
+  const files = [
+    new File([await toBlob(exportSide('front'))], baseName() + '-anverso.png', { type: 'image/png' }),
+    new File([await toBlob(exportSide('back'))], baseName() + '-reverso.png', { type: 'image/png' }),
+  ];
+  try { await navigator.share({ files, title: 'Mi carnet de licencia' }); } catch (_) {}
+};
+
+/* ---------- Inicio ---------- */
+render();
+if (document.fonts) {
+  Promise.all(['400', '500', '600', '700'].map(w => document.fonts.load(`${w} 40px Archivo`))).then(render, render);
+}
+})();
+</script>
+</body>
+</html>
