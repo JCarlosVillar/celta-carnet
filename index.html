@@ -15,21 +15,36 @@
   --gold:#c8962a; --focus:#c8962a; --danger:#b23a2a; --ok:#2f6b47;
   --radius-l:18px; --radius-s:10px;
   --font:"Archivo","Helvetica Neue",Arial,sans-serif;
-  color-scheme:light dark;
+  color-scheme:light;
+}
+:root[data-theme="dark"]{
+  --bg:#131816; --surface:#1b211e; --ink:#e7ece6; --muted:#9aa59f; --line:#2e3833;
+  --gold:#e2b33c; --focus:#e2b33c; --danger:#e07563; --ok:#7fc49b;
+  color-scheme:dark;
 }
 @media (prefers-color-scheme:dark){
-  :root{ --bg:#131816; --surface:#1b211e; --ink:#e7ece6; --muted:#9aa59f; --line:#2e3833; --gold:#e2b33c; --focus:#e2b33c; --danger:#e07563; --ok:#7fc49b; }
+  :root[data-theme="system"]{ --bg:#131816; --surface:#1b211e; --ink:#e7ece6; --muted:#9aa59f; --line:#2e3833; --gold:#e2b33c; --focus:#e2b33c; --danger:#e07563; --ok:#7fc49b; color-scheme:dark; }
 }
 *{box-sizing:border-box}
 html,body{margin:0}
 body{background:var(--bg); color:var(--ink); font:16px/1.5 var(--font); -webkit-font-smoothing:antialiased}
 .app{max-width:1180px; margin:0 auto; padding:clamp(20px,4vw,48px) clamp(16px,3vw,32px) 64px;
-  display:grid; gap:28px; grid-template-columns:minmax(0,1fr); grid-template-areas:"head" "stage" "form"}
+  display:grid; gap:28px; grid-template-columns:minmax(0,1fr); grid-template-areas:"head" "form" "stage"}
 @media (min-width:980px){
   .app{grid-template-columns:minmax(0,1fr) minmax(0,1.1fr); column-gap:48px; grid-template-areas:"head stage" "form stage"; align-items:start}
   .stage{position:sticky; top:24px}
 }
 header{grid-area:head}
+.header-top{display:flex; align-items:flex-start; justify-content:space-between; gap:16px}
+.theme-toggle{flex:none; display:grid; place-items:center; width:42px; height:42px; margin-top:2px; border:1px solid var(--line); border-radius:50%; background:var(--surface); color:var(--ink); cursor:pointer; transition:background .2s, transform .2s}
+.theme-toggle:hover{transform:rotate(12deg)}
+.theme-toggle:focus-visible{outline:2px solid var(--focus); outline-offset:3px}
+.theme-toggle svg{width:21px; height:21px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round}
+.theme-toggle .icon-sun{display:none}
+:root[data-theme="light"] .theme-toggle .icon-moon{display:none}
+:root[data-theme="light"] .theme-toggle .icon-sun{display:block}
+@media(prefers-color-scheme:light){:root[data-theme="system"] .theme-toggle .icon-sun{display:block}:root[data-theme="system"] .theme-toggle .icon-moon{display:none}}
+@media(max-width:520px){.header-top{display:flex; align-items:flex-start}}
 h1{font-size:clamp(2.1rem,4.5vw,3.1rem); line-height:1.02; font-weight:800; font-stretch:112%; letter-spacing:-.02em; margin:0 0 .5rem}
 .lede{color:var(--muted); max-width:46ch; margin:0}
 .lede strong{color:var(--ink); font-weight:600}
@@ -121,7 +136,13 @@ input[type=color]::-webkit-color-swatch-wrapper{padding:3px} input[type=color]::
 <body>
 <main class="app">
   <header>
-    <h1>Tu licencia,<br>en tamaño tarjeta</h1>
+    <div class="header-top">
+      <h1>Tu licencia,<br>en tamaño tarjeta</h1>
+      <button class="theme-toggle" id="themeToggle" type="button" aria-label="Cambiar a tema oscuro" title="Cambiar tema">
+        <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.9 13A8.5 8.5 0 0 1 11 3.1 8.5 8.5 0 1 0 20.9 13Z"/></svg>
+        <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></svg>
+      </button>
+    </div>
     <p class="lede">Sube el PDF de la licencia de la federación y llévatela como carnet para el móvil o para imprimir. <strong>El PDF no sale de tu navegador</strong>: no se sube a ningún servidor.</p>
   </header>
 
@@ -164,7 +185,7 @@ input[type=color]::-webkit-color-swatch-wrapper{padding:3px} input[type=color]::
       <div class="design">
         <div><span class="lbl">Color de la barra superior</span><div class="swatches" id="bars"></div></div>
         <div class="field"><label class="lbl" for="titulo">Título de la tarjeta</label><div class="row"><input type="text" id="titulo"></div></div>
-        <label class="check"><input type="checkbox" id="showLogos" checked disabled> Mostrar los logos también en la cabecera del anverso</label>
+        <label class="check"><input type="checkbox" id="showLogos" checked disabled> Mostrar los logos también en la cabecera del anverso</label><p class="note" id="logosHint" style="margin:-10px 0 0">Sube el PDF para detectar los logos y activar esta opción.</p>
         <label class="check"><input type="checkbox" id="footnote" checked> Indicar que es una copia del documento oficial</label>
       </div>
     </section>
@@ -414,12 +435,18 @@ function drawBack(canvas, preview) {
   const cy = 2.4 + (CH - 2.4) / 2;
   if (state.logosGray) {
     const [lw0, lh0] = dims(state.logosGray);
-    let lh = 20, lw = lh * lw0 / lh0;
+    let lh = state.footnote ? 17 : 20, lw = lh * lw0 / lh0;
     if (lw > 56) { lw = 56; lh = lw * lh0 / lw0; }
-    c.drawImage(state.logosGray, u((CW - lw) / 2), u(cy - lh / 2), u(lw), u(lh));
+    c.drawImage(state.logosGray, u((CW - lw) / 2), u(cy - lh / 2 - (state.footnote ? 1.2 : 0)), u(lw), u(lh));
   } else if (preview) {
     c.fillStyle = '#a0a0a0'; c.font = `500 ${u(2)}px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.fillText('Aquí irán los logos de la federación', u(CW / 2), u(cy)); c.textAlign = 'left';
+    c.fillText('Aquí irán los logos de la federación', u(CW / 2), u(cy - (state.footnote ? 1.2 : 0))); c.textAlign = 'left';
+  }
+  if (state.footnote) {
+    c.fillStyle = STYLE.muted; c.font = `500 ${u(1.35)}px ${FONT}`;
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText('COPIA DEL DOCUMENTO OFICIAL', u(CW / 2), u(CH - 4.2));
+    c.textAlign = 'left';
   }
   finish(c);
 }
@@ -627,6 +654,9 @@ async function loadPdf(file) {
     state.logos = extractLogos(cv, textTop);
     state.logosGray = state.logos ? toGray(state.logos) : null;
     $('#showLogos').disabled = !state.logos;
+    $('#logosHint').textContent = state.logos
+      ? 'Activa o desactiva los logos de la cabecera; el reverso conserva los logos en gris.'
+      : 'No se han podido detectar logos en este PDF; esta opción no está disponible.';
 
     // QR: manda lo que dice el código original; si no se lee, la dirección impresa en el PDF
     setQRData(decodeQR(cv) || findVerifyUrl(lines));
@@ -693,6 +723,28 @@ $('#titulo').value = state.titulo;
 $('#titulo').oninput = e => { state.titulo = e.target.value; render(); };
 $('#footnote').onchange = e => { state.footnote = e.target.checked; render(); };
 $('#showLogos').onchange = e => { state.showLogos = e.target.checked; render(); };
+
+// Alternador de tema claro/oscuro; conserva la elección en este navegador.
+const themeToggle = $('#themeToggle');
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  const darkActive = theme === 'dark' ||
+    (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  themeToggle.setAttribute('aria-label', darkActive ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro');
+  themeToggle.title = darkActive ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro';
+}
+let savedTheme = 'system';
+try { savedTheme = localStorage.getItem('license-card-theme') || 'system'; } catch (_) {}
+if (!['system', 'light', 'dark'].includes(savedTheme)) savedTheme = 'system';
+applyTheme(savedTheme);
+themeToggle.onclick = () => {
+  const current = document.documentElement.dataset.theme || 'system';
+  const darkActive = current === 'dark' ||
+    (current === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const next = darkActive ? 'light' : 'dark';
+  applyTheme(next);
+  try { localStorage.setItem('license-card-theme', next); } catch (_) {}
+};
 
 const drop = $('#drop'), pdfInput = $('#pdfInput');
 pdfInput.onchange = e => loadPdf(e.target.files[0]);
